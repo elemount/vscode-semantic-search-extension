@@ -1,26 +1,26 @@
 /**
  * Status Bar Manager
- * Manages status bar items for indexing progress and Chroma server status
+ * Manages status bar items for indexing progress and embedding model status
  */
 
 import * as vscode from 'vscode';
-import { ChromaServerStatus } from './chromaProcessManager';
 import { IndexingStatus } from '../models/types';
 
+export type ModelStatus = 'loading' | 'ready' | 'error';
+
 export class StatusBarManager {
-    private chromaStatusItem: vscode.StatusBarItem;
+    private modelStatusItem: vscode.StatusBarItem;
     private indexingStatusItem: vscode.StatusBarItem;
 
     constructor() {
-        // Create Chroma server status item
-        this.chromaStatusItem = vscode.window.createStatusBarItem(
+        // Create model status item
+        this.modelStatusItem = vscode.window.createStatusBarItem(
             vscode.StatusBarAlignment.Left,
             100
         );
-        this.chromaStatusItem.name = 'Chroma Server Status';
-        this.chromaStatusItem.command = 'semantic-search.showServerLogs';
-        this.updateChromaStatus('stopped');
-        this.chromaStatusItem.show();
+        this.modelStatusItem.name = 'Semantic Search Model';
+        this.updateModelStatus('loading');
+        this.modelStatusItem.show();
 
         // Create indexing status item
         this.indexingStatusItem = vscode.window.createStatusBarItem(
@@ -32,29 +32,24 @@ export class StatusBarManager {
     }
 
     /**
-     * Update Chroma server status display
+     * Update embedding model status display
      */
-    updateChromaStatus(status: ChromaServerStatus): void {
+    updateModelStatus(status: ModelStatus): void {
         switch (status) {
-            case 'stopped':
-                this.chromaStatusItem.text = '$(circle-slash) Chroma';
-                this.chromaStatusItem.tooltip = 'Chroma server is stopped';
-                this.chromaStatusItem.backgroundColor = undefined;
+            case 'loading':
+                this.modelStatusItem.text = '$(sync~spin) Semantic Search';
+                this.modelStatusItem.tooltip = 'Loading embedding model...';
+                this.modelStatusItem.backgroundColor = undefined;
                 break;
-            case 'starting':
-                this.chromaStatusItem.text = '$(sync~spin) Chroma';
-                this.chromaStatusItem.tooltip = 'Chroma server is starting...';
-                this.chromaStatusItem.backgroundColor = undefined;
-                break;
-            case 'running':
-                this.chromaStatusItem.text = '$(check) Chroma';
-                this.chromaStatusItem.tooltip = 'Chroma server is running';
-                this.chromaStatusItem.backgroundColor = undefined;
+            case 'ready':
+                this.modelStatusItem.text = '$(check) Semantic Search';
+                this.modelStatusItem.tooltip = 'Semantic Search is ready';
+                this.modelStatusItem.backgroundColor = undefined;
                 break;
             case 'error':
-                this.chromaStatusItem.text = '$(error) Chroma';
-                this.chromaStatusItem.tooltip = 'Chroma server error - click for logs';
-                this.chromaStatusItem.backgroundColor = new vscode.ThemeColor(
+                this.modelStatusItem.text = '$(error) Semantic Search';
+                this.modelStatusItem.tooltip = 'Semantic Search error';
+                this.modelStatusItem.backgroundColor = new vscode.ThemeColor(
                     'statusBarItem.errorBackground'
                 );
                 break;
@@ -99,7 +94,7 @@ export class StatusBarManager {
      * Dispose resources
      */
     dispose(): void {
-        this.chromaStatusItem.dispose();
+        this.modelStatusItem.dispose();
         this.indexingStatusItem.dispose();
     }
 }

@@ -3,10 +3,8 @@
  */
 
 import * as vscode from 'vscode';
-import { ChromaService } from './chromaService';
-import { DuckDBService } from './duckdbService';
+import { VectorDbService } from './vectorDbService';
 import {
-    DocumentChunk,
     IndexedFile,
     IndexingConfig,
     IndexingStatus,
@@ -25,8 +23,7 @@ import {
 } from '../utils/fileUtils';
 
 export class IndexingService {
-    private chromaService: ChromaService;
-    private duckdbService: DuckDBService;
+    private vectorDbService: VectorDbService;
     private config: IndexingConfig;
     private status: IndexingStatus;
     private statusEmitter: vscode.EventEmitter<IndexingStatus>;
@@ -34,12 +31,10 @@ export class IndexingService {
     public readonly onStatusChange: vscode.Event<IndexingStatus>;
 
     constructor(
-        chromaService: ChromaService,
-        duckdbService: DuckDBService,
+        vectorDbService: VectorDbService,
         config: IndexingConfig = DEFAULT_INDEXING_CONFIG
     ) {
-        this.chromaService = chromaService;
-        this.duckdbService = duckdbService;
+        this.vectorDbService = vectorDbService;
         this.config = config;
         this.status = {
             isIndexing: false,
@@ -130,7 +125,7 @@ export class IndexingService {
         const md5Hash = calculateMD5(content);
 
         // Check if file is already indexed with same hash
-        const existingFile = await this.duckdbService.getIndexedFile(fileId);
+        const existingFile = await this.vectorDbService.getIndexedFile(fileId);
         if (existingFile && existingFile.md5Hash === md5Hash) {
             // File hasn't changed, skip
             return;
@@ -138,28 +133,29 @@ export class IndexingService {
 
         // Delete existing chunks if any
         if (existingFile) {
-            await this.chromaService.deleteFileChunks(fileId);
+            await this.vectorDbService.deleteFileChunks(fileId);
         }
 
         // Split content into chunks
         const rawChunks = splitIntoChunks(content, this.config.chunkSize, this.config.chunkOverlap);
 
-        // Create document chunks
-        const chunks: DocumentChunk[] = rawChunks.map((chunk) => ({
-            id: generateChunkId(fileId, chunk.lineStart, chunk.lineEnd),
+        // Create code chunks for VectorDbService
+        const chunks = rawChunks.map((chunk) => ({
+            chunkId: generateChunkId(fileId, chunk.lineStart, chunk.lineEnd),
             fileId,
             filePath,
+            workspacePath,
             content: chunk.content,
             lineStart: chunk.lineStart,
             lineEnd: chunk.lineEnd,
         }));
 
-        // Add chunks to ChromaDB
+        // Add chunks to VectorDbService (includes embedding generation)
         if (chunks.length > 0) {
-            await this.chromaService.addChunks(chunks);
+            await this.vectorDbService.addChunks(chunks);
         }
 
-        // Update metadata in DuckDB
+        // Update metadata in database
         const indexedFile: IndexedFile = {
             fileId,
             filePath,
@@ -167,7 +163,7 @@ export class IndexingService {
             md5Hash,
             lastIndexedAt: Date.now(),
         };
-        await this.duckdbService.upsertIndexedFile(indexedFile);
+        await this.vectorDbService.upsertIndexedFile(indexedFile);
     }
 
     /**
@@ -216,13 +212,13 @@ export class IndexingService {
      * Delete index for a file
      */
     async deleteFileIndex(filePath: string): Promise<void> {
-        const indexedFile = await this.duckdbService.getIndexedFileByPath(normalizePath(filePath));
+        const indexedFile = await this.vectorDbService.getIndexedFileByPath(normalizePath(filePath));
         if (!indexedFile) {
             return;
         }
 
-        await this.chromaService.deleteFileChunks(indexedFile.fileId);
-        await this.duckdbService.deleteIndexedFile(indexedFile.fileId);
+        await this.vectorDbService.deleteFileChunks(indexedFile.fileId);
+        await this.vectorDbService.deleteIndexedFile(indexedFile.fileId);
     }
 
     /**
@@ -230,15 +226,8 @@ export class IndexingService {
      */
     async deleteWorkspaceIndex(workspacePath: string): Promise<void> {
         const normalizedPath = normalizePath(workspacePath);
-        const files = await this.duckdbService.getIndexedFilesForWorkspace(normalizedPath);
-
-        // Delete chunks for all files
-        for (const file of files) {
-            await this.chromaService.deleteFileChunks(file.fileId);
-        }
-
-        // Delete metadata
-        await this.duckdbService.deleteWorkspaceIndex(normalizedPath);
+        // VectorDbService.deleteWorkspaceIndex handles both chunks and metadata
+        await this.vectorDbService.deleteWorkspaceIndex(normalizedPath);
     }
 
     /**
@@ -248,9 +237,9 @@ export class IndexingService {
         let files: IndexedFile[];
 
         if (workspacePath) {
-            files = await this.duckdbService.getIndexedFilesForWorkspace(normalizePath(workspacePath));
+            files = await this.vectorDbService.getIndexedFilesForWorkspace(normalizePath(workspacePath));
         } else {
-            files = await this.duckdbService.getAllIndexedFiles();
+            files = await this.vectorDbService.getAllIndexedFiles();
         }
 
         const entries: IndexEntry[] = [];
@@ -268,7 +257,7 @@ export class IndexingService {
                 isStale = true;
             }
 
-            const chunkCount = await this.chromaService.getFileChunkCount(file.fileId);
+            const chunkCount = await this.vectorDbService.getFileChunkCount(file.fileId);
 
             entries.push({
                 fileId: file.fileId,
@@ -287,7 +276,7 @@ export class IndexingService {
      * Check if a file needs reindexing
      */
     async isFileStale(filePath: string): Promise<boolean> {
-        const indexedFile = await this.duckdbService.getIndexedFileByPath(normalizePath(filePath));
+        const indexedFile = await this.vectorDbService.getIndexedFileByPath(normalizePath(filePath));
         if (!indexedFile) {
             return true; // Not indexed
         }

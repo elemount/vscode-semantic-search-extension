@@ -2,7 +2,7 @@
   "name": "semantic-search",
   "displayName": "Semantic Search",
   "description": "Provide local semantic search for VsCode to make LLM happy",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.106.1"
   },
@@ -63,18 +63,7 @@
         "category": "Semantic Search",
         "icon": "$(refresh)"
       },
-      {
-        "command": "semantic-search.showServerLogs",
-        "title": "Show Server Logs",
-        "category": "Semantic Search",
-        "icon": "$(output)"
-      },
-      {
-        "command": "semantic-search.restartServer",
-        "title": "Restart Chroma Server",
-        "category": "Semantic Search",
-        "icon": "$(debug-restart)"
-      },
+
       {
         "command": "semantic-search.reindexFile",
         "title": "Reindex File",
@@ -144,10 +133,6 @@
         {
           "command": "semantic-search.deleteFileIndex",
           "when": "false"
-        },
-        {
-          "command": "semantic-search.showServerLogs",
-          "when": "true"
         }
       ]
     },
@@ -195,31 +180,6 @@
           },
           "default": [],
           "description": "Additional glob patterns to include in indexing"
-        },
-        "semanticSearch.chroma.port": {
-          "type": "number",
-          "default": 0,
-          "minimum": 0,
-          "maximum": 65535,
-          "description": "Port for Chroma server (0 = auto-assign)"
-        },
-        "semanticSearch.chroma.logLevel": {
-          "type": "string",
-          "enum": [
-            "debug",
-            "info",
-            "warning",
-            "error"
-          ],
-          "default": "warning",
-          "description": "Chroma server log level"
-        },
-        "semanticSearch.chroma.startupTimeout": {
-          "type": "number",
-          "default": 30000,
-          "minimum": 5000,
-          "maximum": 120000,
-          "description": "Timeout in milliseconds for Chroma server to start"
         }
       }
     },
@@ -263,8 +223,7 @@
   "dependencies": {
     "@duckdb/node-api": "^1.4.2-r.1",
     "@duckdb/node-bindings": "^1.4.2-r.1",
-    "chromadb": "^1.10.5",
-    "chromadb-default-embed": "^2.13.2",
+    "@huggingface/transformers": "^3.0.0",
     "minimatch": "^10.0.1"
   },
   "devDependencies": {

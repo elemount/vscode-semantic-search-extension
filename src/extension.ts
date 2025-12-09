@@ -1,13 +1,13 @@
 /**
  * VSCode Semantic Search Extension
  * 
- * Provides semantic search capabilities for code using ChromaDB and DuckDB.
+ * Provides semantic search capabilities for code using DuckDB VSS and Transformers.js.
  * Integrates with GitHub Copilot through the Language Model Tool API.
  */
 
 import * as vscode from 'vscode';
-import { ChromaService } from './services/chromaService';
-import { DuckDBService } from './services/duckdbService';
+import { EmbeddingService } from './services/embeddingService';
+import { VectorDbService } from './services/vectorDbService';
 import { IndexingService } from './services/indexingService';
 import { SearchService } from './services/searchService';
 import { StatusBarManager } from './services/statusBarManager';
@@ -20,8 +20,8 @@ import { registerSemanticSearchTool } from './tools/semanticSearchTool';
 import { getStoragePath, getIndexingConfigFromSettings } from './utils/fileUtils';
 
 // Global service instances
-let chromaService: ChromaService;
-let duckdbService: DuckDBService;
+let embeddingService: EmbeddingService;
+let vectorDbService: VectorDbService;
 let indexingService: IndexingService;
 let searchService: SearchService;
 let statusBarManager: StatusBarManager;
@@ -42,30 +42,49 @@ export async function activate(context: vscode.ExtensionContext) {
         statusBarManager = new StatusBarManager();
         context.subscriptions.push({ dispose: () => statusBarManager.dispose() });
 
-        // Initialize services with extension context for server mode
-        chromaService = new ChromaService(storagePath, context);
-        duckdbService = new DuckDBService(storagePath);
+        // Show loading status
+        statusBarManager.updateModelStatus('loading');
 
-        // Subscribe to server status changes
-        const serverStatusDisposable = chromaService.onServerStatusChange((status) => {
-            statusBarManager.updateChromaStatus(status);
-        });
-        context.subscriptions.push(serverStatusDisposable);
+        // Initialize embedding service with progress
+        embeddingService = new EmbeddingService(context);
+        
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: 'Semantic Search',
+                cancellable: false,
+            },
+            async (progress) => {
+                progress.report({ message: 'Loading embedding model...' });
+                
+                await embeddingService.initialize((p) => {
+                    if (p.status === 'progress' && p.total) {
+                        const percent = Math.round((p.loaded || 0) / p.total * 100);
+                        progress.report({ 
+                            message: `Downloading model: ${percent}%`,
+                            increment: 0
+                        });
+                    }
+                });
+                
+                progress.report({ message: 'Initializing database...' });
+                
+                // Initialize vector database service
+                vectorDbService = new VectorDbService(storagePath, embeddingService);
+                await vectorDbService.initialize();
+            }
+        );
 
-        // Initialize databases
-        await Promise.all([
-            chromaService.initialize(),
-            duckdbService.initialize(),
-        ]);
-
+        // Update status to ready
+        statusBarManager.updateModelStatus('ready');
         console.log('Services initialized successfully');
 
         // Get indexing configuration from settings
         const indexingConfig = getIndexingConfigFromSettings();
 
         // Create indexing and search services
-        indexingService = new IndexingService(chromaService, duckdbService, indexingConfig);
-        searchService = new SearchService(chromaService);
+        indexingService = new IndexingService(vectorDbService, indexingConfig);
+        searchService = new SearchService(vectorDbService);
 
         // Subscribe to indexing status changes
         const indexingStatusDisposable = indexingService.onStatusChange((status) => {
@@ -87,25 +106,6 @@ export async function activate(context: vscode.ExtensionContext) {
             registerQuickSearchCommand(context, searchService),
             registerDeleteIndexCommand(context, indexingService),
             registerDeleteFileIndexCommand(context, indexingService)
-        );
-
-        // Register new server-related commands
-        context.subscriptions.push(
-            vscode.commands.registerCommand('semantic-search.showServerLogs', () => {
-                vscode.commands.executeCommand('workbench.action.output.show', 'Chroma Server');
-            }),
-            vscode.commands.registerCommand('semantic-search.restartServer', async () => {
-                try {
-                    vscode.window.showInformationMessage('Restarting Chroma server...');
-                    await chromaService.dispose();
-                    await chromaService.initialize();
-                    vscode.window.showInformationMessage('Chroma server restarted successfully');
-                } catch (error) {
-                    vscode.window.showErrorMessage(
-                        `Failed to restart Chroma server: ${error instanceof Error ? error.message : String(error)}`
-                    );
-                }
-            })
         );
 
         // Register sidebar view
@@ -137,6 +137,7 @@ export async function activate(context: vscode.ExtensionContext) {
         console.log('Semantic Search extension activated successfully');
     } catch (error) {
         console.error('Failed to activate Semantic Search extension:', error);
+        statusBarManager?.updateModelStatus('error');
         vscode.window.showErrorMessage(
             `Failed to activate Semantic Search: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -160,14 +161,9 @@ export async function deactivate() {
             indexingService.dispose();
         }
 
-        // Close Chroma service (stops the server)
-        if (chromaService) {
-            await chromaService.dispose();
-        }
-
         // Close database connections
-        if (duckdbService) {
-            await duckdbService.close();
+        if (vectorDbService) {
+            await vectorDbService.close();
         }
 
         // Dispose status bar

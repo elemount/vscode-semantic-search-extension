@@ -6,8 +6,8 @@
 export * from './models/types';
 
 // Services
-export { ChromaService } from './services/chromaService';
-export { DuckDBService } from './services/duckdbService';
+export { EmbeddingService } from './services/embeddingService';
+export { VectorDbService } from './services/vectorDbService';
 export { IndexingService } from './services/indexingService';
 export { SearchService } from './services/searchService';
 

@@ -3,22 +3,22 @@
  */
 
 import * as vscode from 'vscode';
-import { ChromaService } from './chromaService';
+import { VectorDbService } from './vectorDbService';
 import { SearchResult } from '../models/types';
 import { normalizePath } from '../utils/fileUtils';
 
 export class SearchService {
-    private chromaService: ChromaService;
+    private vectorDbService: VectorDbService;
 
-    constructor(chromaService: ChromaService) {
-        this.chromaService = chromaService;
+    constructor(vectorDbService: VectorDbService) {
+        this.vectorDbService = vectorDbService;
     }
 
     /**
      * Perform semantic search across all indexed files
      */
     async search(query: string, maxResults: number = 10): Promise<SearchResult[]> {
-        return this.chromaService.search(query, maxResults);
+        return this.vectorDbService.search(query, undefined, maxResults);
     }
 
     /**
@@ -29,7 +29,7 @@ export class SearchService {
         workspacePath: string,
         maxResults: number = 10
     ): Promise<SearchResult[]> {
-        return this.chromaService.searchInWorkspace(
+        return this.vectorDbService.search(
             query,
             normalizePath(workspacePath),
             maxResults

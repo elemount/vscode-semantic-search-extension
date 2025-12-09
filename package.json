@@ -231,6 +231,7 @@
         "modelDescription": "Search for relevant code snippets in the workspace using semantic similarity. Returns file paths, line numbers, and code content. Use this when the user asks about code functionality, wants to find implementations, or needs to locate specific features in the codebase.",
         "icon": "$(search)",
         "canBeReferencedInPrompt": true,
+        "toolReferenceName": "semanticSearch",
         "inputSchema": {
           "type": "object",
           "properties": {

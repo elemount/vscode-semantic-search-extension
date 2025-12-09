@@ -99,8 +99,7 @@ export class ChromaService {
         }
 
         // Import chromadb
-        const { ChromaClient } = require('chromadb');
-        const { DefaultEmbeddingFunction } = require('chromadb-default-embed');
+        const { ChromaClient, DefaultEmbeddingFunction } = require('chromadb');
 
         // Check if we should use server mode
         if (this.useServerMode && this.processManager) {

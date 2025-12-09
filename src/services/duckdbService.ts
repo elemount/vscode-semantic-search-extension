@@ -1,5 +1,6 @@
 /**
  * DuckDB Service for metadata persistence
+ * Using @duckdb/node-api
  */
 
 import * as path from 'path';
@@ -7,11 +8,11 @@ import * as fs from 'fs';
 import { IndexedFile } from '../models/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let duckdb: any;
+let DuckDBInstance: any;
 
 export class DuckDBService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private db: any = null;
+    private instance: any = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private connection: any = null;
     private storagePath: string;
@@ -36,25 +37,16 @@ export class DuckDBService {
             fs.mkdirSync(this.storagePath, { recursive: true });
         }
 
-        // Dynamically import duckdb
-        duckdb = require('duckdb');
+        // Dynamically import @duckdb/node-api
+        const duckdb = require('@duckdb/node-api');
+        DuckDBInstance = duckdb.DuckDBInstance;
 
-        return new Promise((resolve, reject) => {
-            this.db = new duckdb.Database(this.dbPath, (err: Error | null) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
+        // Create instance and connection
+        this.instance = await DuckDBInstance.create(this.dbPath);
+        this.connection = await this.instance.connect();
 
-                this.connection = this.db!.connect();
-                this.createTables()
-                    .then(() => {
-                        this.initialized = true;
-                        resolve();
-                    })
-                    .catch(reject);
-            });
-        });
+        await this.createTables();
+        this.initialized = true;
     }
 
     /**
@@ -69,51 +61,66 @@ export class DuckDBService {
                 md5_hash VARCHAR NOT NULL,
                 last_indexed_at BIGINT NOT NULL
             );
-            
-            CREATE INDEX IF NOT EXISTS idx_workspace_path ON indexed_files(workspace_path);
-            CREATE INDEX IF NOT EXISTS idx_file_path ON indexed_files(file_path);
         `;
 
-        return this.runSQL(createTableSQL);
+        await this.runSQL(createTableSQL);
+
+        // Create indexes separately
+        await this.runSQL(`CREATE INDEX IF NOT EXISTS idx_workspace_path ON indexed_files(workspace_path);`);
+        await this.runSQL(`CREATE INDEX IF NOT EXISTS idx_file_path ON indexed_files(file_path);`);
     }
 
     /**
      * Run SQL statement
      */
-    private runSQL(sql: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            if (!this.connection) {
-                reject(new Error('Database not initialized'));
-                return;
-            }
-
-            this.connection.run(sql, (err: Error | null) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
+    private async runSQL(sql: string): Promise<void> {
+        if (!this.connection) {
+            throw new Error('Database not initialized');
+        }
+        await this.connection.run(sql);
     }
 
     /**
      * Query and return results
      */
-    private querySQL<T>(sql: string, ...params: unknown[]): Promise<T[]> {
-        return new Promise((resolve, reject) => {
-            if (!this.connection) {
-                reject(new Error('Database not initialized'));
-                return;
-            }
+    private async querySQL<T>(sql: string, ...params: unknown[]): Promise<T[]> {
+        if (!this.connection) {
+            throw new Error('Database not initialized');
+        }
 
-            this.connection.all(sql, ...params, (err: Error | null, rows: T[]) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(rows as T[]);
-                }
-            });
+        // Prepare statement if we have parameters
+        if (params.length > 0) {
+            const stmt = await this.connection.prepare(sql);
+            for (let i = 0; i < params.length; i++) {
+                stmt.bindValue(i + 1, params[i]);
+            }
+            const result = await stmt.run();
+            const rows = await result.getRows();
+            return this.convertRows<T>(rows, result);
+        }
+
+        const result = await this.connection.run(sql);
+        const rows = await result.getRows();
+        return this.convertRows<T>(rows, result);
+    }
+
+    /**
+     * Convert DuckDB rows to objects
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private convertRows<T>(rows: any[], result: any): T[] {
+        if (!rows || rows.length === 0) {
+            return [];
+        }
+
+        const columnNames = result.columnNames();
+        return rows.map(row => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const obj: any = {};
+            for (let i = 0; i < columnNames.length; i++) {
+                obj[columnNames[i]] = row[i];
+            }
+            return obj as T;
         });
     }
 
@@ -121,9 +128,13 @@ export class DuckDBService {
      * Add or update an indexed file record
      */
     async upsertIndexedFile(file: IndexedFile): Promise<void> {
+        if (!this.connection) {
+            throw new Error('Database not initialized');
+        }
+
         const sql = `
             INSERT INTO indexed_files (file_id, file_path, workspace_path, md5_hash, last_indexed_at)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (file_id) DO UPDATE SET
                 file_path = excluded.file_path,
                 workspace_path = excluded.workspace_path,
@@ -131,35 +142,20 @@ export class DuckDBService {
                 last_indexed_at = excluded.last_indexed_at
         `;
 
-        return new Promise((resolve, reject) => {
-            if (!this.connection) {
-                reject(new Error('Database not initialized'));
-                return;
-            }
-
-            this.connection.run(
-                sql,
-                file.fileId,
-                file.filePath,
-                file.workspacePath,
-                file.md5Hash,
-                file.lastIndexedAt,
-                (err: Error | null) => {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve();
-                    }
-                }
-            );
-        });
+        const stmt = await this.connection.prepare(sql);
+        stmt.bindValue(1, file.fileId);
+        stmt.bindValue(2, file.filePath);
+        stmt.bindValue(3, file.workspacePath);
+        stmt.bindValue(4, file.md5Hash);
+        stmt.bindValue(5, file.lastIndexedAt);
+        await stmt.run();
     }
 
     /**
      * Get indexed file by file ID
      */
     async getIndexedFile(fileId: string): Promise<IndexedFile | null> {
-        const sql = `SELECT * FROM indexed_files WHERE file_id = ?`;
+        const sql = `SELECT * FROM indexed_files WHERE file_id = $1`;
         const rows = await this.querySQL<{
             file_id: string;
             file_path: string;
@@ -186,7 +182,7 @@ export class DuckDBService {
      * Get indexed file by file path
      */
     async getIndexedFileByPath(filePath: string): Promise<IndexedFile | null> {
-        const sql = `SELECT * FROM indexed_files WHERE file_path = ?`;
+        const sql = `SELECT * FROM indexed_files WHERE file_path = $1`;
         const rows = await this.querySQL<{
             file_id: string;
             file_path: string;
@@ -213,7 +209,7 @@ export class DuckDBService {
      * Get all indexed files for a workspace
      */
     async getIndexedFilesForWorkspace(workspacePath: string): Promise<IndexedFile[]> {
-        const sql = `SELECT * FROM indexed_files WHERE workspace_path = ?`;
+        const sql = `SELECT * FROM indexed_files WHERE workspace_path = $1`;
         const rows = await this.querySQL<{
             file_id: string;
             file_path: string;
@@ -257,42 +253,28 @@ export class DuckDBService {
      * Delete indexed file by file ID
      */
     async deleteIndexedFile(fileId: string): Promise<void> {
-        const sql = `DELETE FROM indexed_files WHERE file_id = ?`;
-        return new Promise((resolve, reject) => {
-            if (!this.connection) {
-                reject(new Error('Database not initialized'));
-                return;
-            }
+        if (!this.connection) {
+            throw new Error('Database not initialized');
+        }
 
-            this.connection.run(sql, fileId, (err: Error | null) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
+        const sql = `DELETE FROM indexed_files WHERE file_id = $1`;
+        const stmt = await this.connection.prepare(sql);
+        stmt.bindValue(1, fileId);
+        await stmt.run();
     }
 
     /**
      * Delete all indexed files for a workspace
      */
     async deleteWorkspaceIndex(workspacePath: string): Promise<void> {
-        const sql = `DELETE FROM indexed_files WHERE workspace_path = ?`;
-        return new Promise((resolve, reject) => {
-            if (!this.connection) {
-                reject(new Error('Database not initialized'));
-                return;
-            }
+        if (!this.connection) {
+            throw new Error('Database not initialized');
+        }
 
-            this.connection.run(sql, workspacePath, (err: Error | null) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
+        const sql = `DELETE FROM indexed_files WHERE workspace_path = $1`;
+        const stmt = await this.connection.prepare(sql);
+        stmt.bindValue(1, workspacePath);
+        await stmt.run();
     }
 
     /**
@@ -303,7 +285,7 @@ export class DuckDBService {
         let params: unknown[] = [];
         
         if (workspacePath) {
-            sql += ` WHERE workspace_path = ?`;
+            sql += ` WHERE workspace_path = $1`;
             params = [workspacePath];
         }
 
@@ -315,17 +297,14 @@ export class DuckDBService {
      * Close database connection
      */
     async close(): Promise<void> {
-        return new Promise((resolve) => {
-            if (this.db) {
-                this.db.close(() => {
-                    this.db = null;
-                    this.connection = null;
-                    this.initialized = false;
-                    resolve();
-                });
-            } else {
-                resolve();
-            }
-        });
+        if (this.connection) {
+            this.connection.closeSync();
+            this.connection = null;
+        }
+        if (this.instance) {
+            this.instance.closeSync();
+            this.instance = null;
+        }
+        this.initialized = false;
     }
 }

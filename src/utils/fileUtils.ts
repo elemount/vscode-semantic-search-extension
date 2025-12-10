@@ -129,13 +129,18 @@ export function getIndexingConfigFromSettings(): IndexingConfig {
         'indexing.chunkOverlapTokens',
         DEFAULT_INDEXING_CONFIG.chunkOverlapTokens
     );
+    const maxLines = config.get<number>(
+        'indexing.chunkMaxLine',
+        DEFAULT_INDEXING_CONFIG.chunkMaxLine
+    );
 
     const clampedMaxTokens = Math.min(Math.max(maxTokens, 256), 2048);
     const clampedOverlapTokens = Math.max(0, Math.min(overlapTokens, clampedMaxTokens - 1));
-
+    const clampedMaxLines = Math.min(Math.max(maxLines, 10), 200);
     return {
         chunkMaxTokens: clampedMaxTokens,
         chunkOverlapTokens: clampedOverlapTokens,
+        chunkMaxLine: clampedMaxLines,
         excludePatterns,
         includePatterns,
     };

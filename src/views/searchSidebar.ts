@@ -231,8 +231,8 @@ export class SearchSidebarProvider implements vscode.WebviewViewProvider {
      * Get the HTML content for the webview
      */
     private async _getHtmlContent(_webview: vscode.Webview): Promise<string> {
-        const htmlTemplate = await loadTemplate(this._extensionUri, 'searchSidebar.html');
-        const cssContent = await loadCss(this._extensionUri, 'searchSidebar.css');
+        const htmlTemplate = await loadTemplate(this._extensionUri, 'searchSidebar.html.template');
+        const cssContent = await loadCss(this._extensionUri, 'searchSidebar.css.template');
         
         return htmlTemplate.replace('{{CSS_CONTENT}}', cssContent);
     }

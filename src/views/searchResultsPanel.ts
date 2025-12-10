@@ -233,8 +233,8 @@ export class SearchResultsPanel {
         const typeFilters = this._getFileTypeFilters();
         const folderFilters = this._getFolderFilters();
 
-        const htmlTemplate = await loadTemplate(this._extensionUri, 'searchResultsPanel.html');
-        const cssContent = await loadCss(this._extensionUri, 'searchResultsPanel.css');
+        const htmlTemplate = await loadTemplate(this._extensionUri, 'searchResultsPanel.html.template');
+        const cssContent = await loadCss(this._extensionUri, 'searchResultsPanel.css.template');
         
         const typeFiltersHtml = typeFilters.map((f) => `<option value="${f.value}">${this._escapeHtml(f.label)}</option>`).join('');
         const folderFiltersHtml = folderFilters.map((f) => `<option value="${f.value}">${this._escapeHtml(f.label)}</option>`).join('');

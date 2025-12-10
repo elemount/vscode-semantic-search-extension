@@ -55,7 +55,7 @@ suite('Extension Test Suite', () => {
 		
 		assert.strictEqual(config.get('autoIndex'), false);
 		assert.strictEqual(config.get('indexing.chunkMaxTokens'), 1024);
-		assert.strictEqual(config.get('indexing.chunkOverlapTokens'), 256);
+		assert.strictEqual(config.get('indexing.chunkOverlapTokens'), 128);
 		assert.strictEqual(config.get('maxResults'), 10);
 		assert.strictEqual(config.get('logging.level'), 'warn');
 	});

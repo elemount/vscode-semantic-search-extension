@@ -3,18 +3,55 @@
  */
 
 /**
+ * Represents a workspace in the database
+ */
+export interface Workspace {
+    workspaceId: string;
+    workspacePath: string;
+    workspaceName: string;
+    status: 'active' | 'indexing' | 'error';
+    createdAt: number; // Unix timestamp
+    lastUpdatedAt: number; // Unix timestamp
+    totalFiles: number;
+    totalChunks: number;
+}
+
+/**
  * Represents an indexed file's metadata stored in DuckDB
  */
 export interface IndexedFile {
     fileId: string;
-    filePath: string;
-    workspacePath: string;
+    workspaceId: string;
+    filePath: string; // Full relative path, e.g., 'src/components/Button.tsx'
+    folderPath: string; // Derived: 'src/components' (for grouping/tree view)
+    fileName: string; // Just 'Button.tsx'
     md5Hash: string;
+    language?: string;
+    fileSize?: number;
+    lineCount?: number;
+    chunkCount: number;
+    createdAt: number; // Unix timestamp
     lastIndexedAt: number; // Unix timestamp
+    // Legacy field for backward compatibility
+    workspacePath?: string;
+}
+
+/**
+ * Represents a code chunk stored in the database
+ */
+export interface CodeChunk {
+    chunkId: string;
+    fileId: string;
+    content: string;
+    lineStart: number;
+    lineEnd: number;
+    chunkIndex: number; // Order within file
+    createdAt: number; // Unix timestamp
 }
 
 /**
  * Represents a document chunk stored in ChromaDB
+ * @deprecated Use CodeChunk instead
  */
 export interface DocumentChunk {
     id: string;
@@ -24,6 +61,30 @@ export interface DocumentChunk {
     lineStart: number;
     lineEnd: number;
     metadata?: Record<string, unknown>;
+}
+
+/**
+ * Folder information derived from file paths
+ */
+export interface FolderInfo {
+    folderPath: string;
+    fileCount: number;
+    totalChunks: number;
+}
+
+/**
+ * Tree node types for the index browser
+ */
+export type TreeNodeType = 'workspace' | 'folder' | 'file' | 'chunk';
+
+/**
+ * Base tree node for index browser
+ */
+export interface TreeNode {
+    type: TreeNodeType;
+    id: string;
+    label: string;
+    description?: string;
 }
 
 /**
@@ -86,7 +147,7 @@ export interface WorkspaceIndex {
 export const DEFAULT_INDEXING_CONFIG: IndexingConfig = {
     chunkMaxTokens: 1024,
     chunkMaxLine: 40,
-    chunkOverlapTokens: 256,
+    chunkOverlapTokens: 128,
     excludePatterns: [
         '**/node_modules/**',
         '**/.git/**',

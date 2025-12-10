@@ -21,7 +21,7 @@ import {
     getRelativePath,
     normalizePath,
 } from '../utils/fileUtils';
-import { splitIntoTokenChunks } from '../utils/tokenChunker';
+import { smartChunk } from '../utils/tokenChunker';
 
 export class IndexingService {
     private vectorDbService: VectorDbService;
@@ -137,11 +137,11 @@ export class IndexingService {
             await this.vectorDbService.deleteFileChunks(fileId);
         }
 
-        // Split content into token-based chunks (with line-aligned boundaries)
-        const rawChunks = splitIntoTokenChunks(content, this.config);
+        // Split content into chunks (auto-detects document vs code files)
+        const rawChunks = smartChunk(content, filePath, this.config);
 
         // Create code chunks for VectorDbService
-        const chunks = rawChunks.map((chunk) => ({
+        const chunks = rawChunks.map((chunk, index) => ({
             chunkId: generateChunkId(fileId, chunk.lineStart, chunk.lineEnd),
             fileId,
             filePath,
@@ -149,6 +149,7 @@ export class IndexingService {
             content: chunk.content,
             lineStart: chunk.lineStart,
             lineEnd: chunk.lineEnd,
+            chunkIndex: index,
         }));
 
         // Add chunks to VectorDbService (includes embedding generation)
@@ -156,13 +157,22 @@ export class IndexingService {
             await this.vectorDbService.addChunks(chunks);
         }
 
-        // Update metadata in database
+        // Get file stats
+        const lineCount = content.split('\n').length;
+
+        // Update metadata in database with new schema fields
         const indexedFile: IndexedFile = {
             fileId,
+            workspaceId: '', // Will be derived by vectorDbService
             filePath,
-            workspacePath,
+            folderPath: getRelativePath(workspacePath, filePath).replace(/[^/\\]+$/, '').replace(/[/\\]$/, ''),
+            fileName: filePath.replace(/\\/g, '/').split('/').pop() || filePath,
             md5Hash,
+            chunkCount: chunks.length,
+            createdAt: existingFile?.createdAt || Date.now(),
             lastIndexedAt: Date.now(),
+            workspacePath,
+            lineCount,
         };
         await this.vectorDbService.upsertIndexedFile(indexedFile);
     }
@@ -258,12 +268,13 @@ export class IndexingService {
                 isStale = true;
             }
 
-            const chunkCount = await this.vectorDbService.getFileChunkCount(file.fileId);
+            // Use stored chunk count if available, otherwise query
+            const chunkCount = file.chunkCount || await this.vectorDbService.getFileChunkCount(file.fileId);
 
             entries.push({
                 fileId: file.fileId,
                 filePath: file.filePath,
-                relativePath: getRelativePath(file.workspacePath, file.filePath),
+                relativePath: getRelativePath(file.workspacePath || '', file.filePath),
                 isStale,
                 lastIndexedAt: new Date(file.lastIndexedAt),
                 chunkCount,

@@ -86,7 +86,7 @@ export async function activate(context: vscode.ExtensionContext) {
         );
 
         // Register sidebar view
-        const treeView = registerIndexSidebarView(context, indexingService);
+        const treeView = registerIndexSidebarView(context, indexingService, vectorDbService);
         context.subscriptions.push(treeView);
 
         // Register search sidebar webview provider

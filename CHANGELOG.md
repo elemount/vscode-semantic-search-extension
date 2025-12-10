@@ -4,6 +4,43 @@ All notable changes to the "semantic-search" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.9] - 2024-12-10
+
+### Added
+- **Hierarchical Database Schema**: New workspace → folder → file → chunk hierarchy
+  - `workspaces` table for top-level workspace tracking
+  - `folder_path` derived column for efficient grouping
+  - Schema version tracking with `schema_migrations` table
+  - Automatic migration from v0.0.8 schema
+- **Enhanced Tree View**: Browse indexed content with chunk details
+  - Expand files to see individual code chunks
+  - Click chunks to jump to specific line ranges
+  - New "Toggle Show Chunks" command
+  - New "Reveal in Explorer" context menu option
+  - New "Copy Path" context menu option
+- **Schema Documentation**: Complete documentation in `doc/duckdb-schema.md`
+  - Table definitions with column descriptions
+  - Relationship diagrams
+  - Common query patterns
+  - Migration history
+
+### Changed
+- **IndexedFile interface**: Added new fields
+  - `workspaceId`, `folderPath`, `fileName`, `chunkCount`, `createdAt`
+  - Backward compatible with existing data through migration
+- **VectorDbService**: New methods for hierarchical queries
+  - `getWorkspaceByPath()`, `getAllWorkspaces()`, `updateWorkspaceStats()`
+  - `getFolderHierarchy()`, `getFilesInFolder()`
+  - `getChunksForFile()` for tree view
+- **MigrationService**: Handles schema version upgrades
+  - Automatic detection and migration on startup
+  - Preserves existing data during upgrade
+
+### Developer Experience
+- Cleaner separation of workspace, folder, and file concerns
+- Better database indexing for tree view performance
+- Comprehensive schema documentation for contributors
+
 ## [0.0.8] - 2024-12-10
 
 ### Changed

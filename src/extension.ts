@@ -16,6 +16,7 @@ import { registerBuildIndexCommand, registerIndexFilesCommand } from './commands
 import { registerSearchCommand, registerQuickSearchCommand, registerSearchWithPanelCommand } from './commands/search';
 import { registerDeleteIndexCommand, registerDeleteFileIndexCommand } from './commands/deleteIndex';
 import { registerIndexSidebarView } from './views/indexSidebar';
+import { registerSearchSidebarView } from './views/searchSidebar';
 import { registerSemanticSearchTool } from './tools/semanticSearchTool';
 import { getStoragePath, getIndexingConfigFromSettings } from './utils/fileUtils';
 
@@ -111,6 +112,31 @@ export async function activate(context: vscode.ExtensionContext) {
         // Register sidebar view
         const treeView = registerIndexSidebarView(context, indexingService);
         context.subscriptions.push(treeView);
+
+        // Register search sidebar webview provider
+        const { provider: searchSidebarProvider, disposable: searchSidebarDisposable } = 
+            registerSearchSidebarView(context, searchService);
+        context.subscriptions.push(searchSidebarDisposable);
+
+        // Register search sidebar commands
+        context.subscriptions.push(
+            vscode.commands.registerCommand('semantic-search.focusSearchInput', () => {
+                vscode.commands.executeCommand('semanticSearchSidebar.focus');
+                searchSidebarProvider.focusSearchInput();
+            })
+        );
+
+        context.subscriptions.push(
+            vscode.commands.registerCommand('semantic-search.clearSearchResults', () => {
+                searchSidebarProvider.clearResults();
+            })
+        );
+
+        context.subscriptions.push(
+            vscode.commands.registerCommand('semantic-search.openSearchInPanel', () => {
+                searchSidebarProvider.openInPanel();
+            })
+        );
 
         // Register Language Model Tool for Copilot integration
         registerSemanticSearchTool(context, searchService);

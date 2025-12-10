@@ -2,7 +2,7 @@
   "name": "semantic-search",
   "displayName": "Semantic Search",
   "description": "Provide local semantic search for VsCode to make LLM happy",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "engines": {
     "vscode": "^1.106.1"
   },
@@ -63,7 +63,6 @@
         "category": "Semantic Search",
         "icon": "$(refresh)"
       },
-
       {
         "command": "semantic-search.reindexFile",
         "title": "Reindex File",
@@ -75,9 +74,44 @@
         "title": "Toggle Group by Folder",
         "category": "Semantic Search",
         "icon": "$(list-tree)"
+      },
+      {
+        "command": "semantic-search.focusSearchInput",
+        "title": "Focus Search Input",
+        "category": "Semantic Search",
+        "icon": "$(search)"
+      },
+      {
+        "command": "semantic-search.clearSearchResults",
+        "title": "Clear Search Results",
+        "category": "Semantic Search",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "semantic-search.openSearchInPanel",
+        "title": "Open Search in Panel",
+        "category": "Semantic Search",
+        "icon": "$(link-external)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "semanticSearch",
+          "title": "Semantic Search",
+          "icon": "$(search-fuzzy)"
+        }
+      ]
+    },
     "views": {
+      "semanticSearch": [
+        {
+          "type": "webview",
+          "id": "semanticSearchSidebar",
+          "name": "Search",
+          "contextualTitle": "Semantic Search"
+        }
+      ],
       "explorer": [
         {
           "id": "semanticSearchIndex",
@@ -103,6 +137,16 @@
           "command": "semantic-search.toggleGroupByFolder",
           "when": "view == semanticSearchIndex",
           "group": "navigation@3"
+        },
+        {
+          "command": "semantic-search.clearSearchResults",
+          "when": "view == semanticSearchSidebar",
+          "group": "navigation@1"
+        },
+        {
+          "command": "semantic-search.openSearchInPanel",
+          "when": "view == semanticSearchSidebar",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -153,7 +197,7 @@
         },
         "semanticSearch.chunkOverlap": {
           "type": "number",
-          "default": 10,
+          "default": 5,
           "minimum": 0,
           "maximum": 50,
           "description": "Number of overlapping lines between chunks"
@@ -209,6 +253,13 @@
             "query"
           ]
         }
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "semantic-search.focusSearchInput",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s"
       }
     ]
   },

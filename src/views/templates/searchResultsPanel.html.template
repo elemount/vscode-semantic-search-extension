@@ -86,22 +86,22 @@
             }
             return results.map(r => `
                 <div class="result-card">
-                    <div class="result-header" onclick="openFile('\${escapeHtml(r.filePath)}', \${r.lineStart}, \${r.lineEnd})">
+                    <div class="result-header" onclick="openFile('${escapeHtml(r.filePath)}', ${r.lineStart}, ${r.lineEnd})">
                         <div class="result-path">
-                            <span class="result-index">#\${r.index}</span>
+                            <span class="result-index">#${r.index}</span>
                             <span class="icon">📄</span>
-                            <span class="result-file">\${escapeHtml(r.relativePath)}</span>
-                            <span class="result-lines">Lines \${r.lineStart}-\${r.lineEnd}</span>
+                            <span class="result-file">${escapeHtml(r.relativePath)}</span>
+                            <span class="result-lines">Lines ${r.lineStart}-${r.lineEnd}</span>
                         </div>
                         <div class="result-score">
                             <div class="score-bar">
-                                <div class="score-fill" style="width: \${r.scorePercent}%"></div>
+                                <div class="score-fill" style="width: ${r.scorePercent}%"></div>
                             </div>
-                            <span class="score-text">\${r.scorePercent}%</span>
+                            <span class="score-text">${r.scorePercent}%</span>
                         </div>
                     </div>
                     <div class="result-content">
-                        <pre><code>\${escapeHtml(r.content.substring(0, 500))}\${r.content.length > 500 ? '...' : ''}</code></pre>
+                        <pre><code>${escapeHtml(r.content.substring(0, 500))}${r.content.length > 500 ? '...' : ''}</code></pre>
                     </div>
                 </div>
             `).join('');

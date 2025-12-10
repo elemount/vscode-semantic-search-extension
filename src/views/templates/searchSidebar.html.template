@@ -153,12 +153,12 @@
                 
                 item.innerHTML = `
                     <div class="result-header">
-                        <span class="result-icon">\${icon}</span>
-                        <span class="result-path" title="\${result.relativePath}">\${result.relativePath}</span>
-                        <span class="result-score">\${result.scorePercent}%</span>
+                        <span class="result-icon">${icon}</span>
+                        <span class="result-path" title="${result.relativePath}">${result.relativePath}</span>
+                        <span class="result-score">${result.scorePercent}%</span>
                     </div>
-                    <div class="result-location">Lines \${result.lineStart}-\${result.lineEnd}</div>
-                    <div class="result-preview">\${escapeHtml(previewContent)}</div>
+                    <div class="result-location">Lines ${result.lineStart}-${result.lineEnd}</div>
+                    <div class="result-preview">${escapeHtml(previewContent)}</div>
                 `;
                 
                 resultsContainer.appendChild(item);

@@ -48,12 +48,17 @@ export function splitIntoTokenChunks(
         typeof config.chunkMaxTokens === 'number'
             ? config.chunkMaxTokens
             : DEFAULT_INDEXING_CONFIG.chunkMaxTokens;
+    const maxLineRaw =
+        typeof config.chunkMaxLine === 'number'
+            ? config.chunkMaxLine
+            : DEFAULT_INDEXING_CONFIG.chunkMaxLine;
     const overlapTokensRaw =
         typeof config.chunkOverlapTokens === 'number'
             ? config.chunkOverlapTokens
             : DEFAULT_INDEXING_CONFIG.chunkOverlapTokens;
 
     const maxTokens = Math.min(Math.max(maxTokensRaw, 256), 2048);
+    const maxLine = Math.min(Math.max(maxLineRaw, 10), 200);
     const overlapTokens = Math.max(0, Math.min(overlapTokensRaw, maxTokens - 1));
 
     if (totalTokens <= maxTokens) {
@@ -79,13 +84,18 @@ export function splitIntoTokenChunks(
             const lastLineIndex = endLineExclusive - 1;
             const candidateTokenEnd = tokenEnds[lastLineIndex];
             const candidateTokenCount = candidateTokenEnd - chunkTokenStart;
+            const candidateLineCount = endLineExclusive - startLine;
 
-            if (candidateTokenCount > maxTokens && endLineExclusive > startLine + 1) {
+            // Check if we've exceeded either limit
+            const exceedsTokenLimit = candidateTokenCount > maxTokens;
+            const exceedsLineLimit = candidateLineCount > maxLine;
+
+            if ((exceedsTokenLimit || exceedsLineLimit) && endLineExclusive > startLine + 1) {
                 endLineExclusive--;
                 break;
             }
 
-            if (candidateTokenCount > maxTokens) {
+            if (exceedsTokenLimit || exceedsLineLimit) {
                 break;
             }
 

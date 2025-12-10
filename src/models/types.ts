@@ -42,6 +42,7 @@ export interface SearchResult {
  */
 export interface IndexingConfig {
     chunkMaxTokens: number;      // Maximum number of tokens per chunk
+    chunkMaxLine: number;        // Maximum number of lines per chunk
     chunkOverlapTokens: number;  // Number of overlapping tokens between chunks
     excludePatterns: string[];
     includePatterns: string[];
@@ -84,6 +85,7 @@ export interface WorkspaceIndex {
  */
 export const DEFAULT_INDEXING_CONFIG: IndexingConfig = {
     chunkMaxTokens: 1024,
+    chunkMaxLine: 40,
     chunkOverlapTokens: 256,
     excludePatterns: [
         '**/node_modules/**',

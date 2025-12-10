@@ -196,6 +196,13 @@
           "maximum": 2048,
           "description": "Maximum number of tokens per chunk for indexing"
         },
+        "semanticSearch.indexing.chunkMaxLine": {
+          "type": "number",
+          "default": 40,
+          "minimum": 10,
+          "maximum": 200,
+          "description": "Maximum number of lines per chunk for indexing (chunk ends when either max tokens or max lines is reached)"
+        },
         "semanticSearch.indexing.chunkOverlapTokens": {
           "type": "number",
           "default": 256,
